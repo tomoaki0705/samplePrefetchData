@@ -18,7 +18,8 @@ const uint64 initState = 0x12345678;
 typedef unsigned char uchar;
 typedef unsigned short ushort;
 typedef int duration;
-const int cSize = 256;
+const int cSize = 64;
+const int cLoop = 10000;
 
 class RNG
 {
@@ -149,7 +150,7 @@ unsigned char diffArray(const uint8_t* image1, const uint8_t* image2, int cLengt
 	return x;
 }
 
-void measureXorOperation(const int cLength, bool usePrefetch)
+void measureXorOperation(const int cLength, const int cIteration, bool usePrefetch)
 {
 	RNG rng(initState);
 	unsigned char *image1, *image2;
@@ -157,7 +158,7 @@ void measureXorOperation(const int cLength, bool usePrefetch)
 	image2 = new unsigned char[cLength];
 	unsigned char result = 0;
 	auto startCopy = std::chrono::system_clock::now();
-	for(int iteration = 0;iteration < 1000;iteration++)
+	for(int iteration = 0;iteration < cIteration;iteration++)
 	{
 		initializeArray(rng, image1, cLength);
 		initializeArray(rng, image2, cLength);
@@ -189,13 +190,18 @@ void measureXorOperation(const int cLength, bool usePrefetch)
 int main(int argc, char ** argv)
 {
 	int length = cSize;
+	int loop = cLoop;
 	if(1 < argc)
 	{
 		length = std::max(atoi(argv[1]), cSize);
 		length = length & ~0xf;
 	}
-	measureXorOperation(length, false);
-	measureXorOperation(length, true);
+	if(2 < argc)
+	{
+		loop = std::max(atoi(argv[2]), 10);
+	}
+	measureXorOperation(length, loop, false);
+	measureXorOperation(length, loop, true);
 	
 	return 0;
 }
