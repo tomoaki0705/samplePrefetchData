@@ -3,7 +3,7 @@
 #include <chrono>
 #include <cstdlib>
 #include <stdint.h>
-#if defined(__ARM_NEON__) || (defined (__ARM_NEON) && defined(__aarch64))
+#if defined(__ARM_NEON__) || (defined (__ARM_NEON) && defined(__aarch64__))
 #include <arm_neon.h>
 #endif
 #if defined _MSC_VER || defined __BORLANDC__
