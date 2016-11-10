@@ -11,10 +11,11 @@
    typedef int64_t int64;
    typedef uint64_t uint64;
 #endif
+#define USE_PREFETCH 1
 const uint64 initState = 0x12345678;
 typedef unsigned char uchar;
 typedef unsigned short ushort;
-const int cSize = 16;
+const int cSize = 256;
 
 class RNG
 {
@@ -60,10 +61,10 @@ void dumpArray(const T *array, int size)
 	cout << endl;
 }
 
-unsigned char diffArray_verify(const unsigned char* image1, const unsigned char* image2, int cSize)
+unsigned char diffArray_verify(const unsigned char* image1, const unsigned char* image2, int cLength)
 {
 	char x = 0;
-	for(int i = 0;i < cSize;i++)
+	for(int i = 0;i < cLength;i++)
 	{
 		int a = (int)image1[i] - (int)image2[i];
 		if(a < 0)
@@ -75,16 +76,35 @@ unsigned char diffArray_verify(const unsigned char* image1, const unsigned char*
 	return x;
 }
 
-unsigned char diffArray(const uint8_t* image1, const uint8_t* image2, int cSize)
+unsigned char diffArray(const uint8_t* image1, const uint8_t* image2, int cLength)
 {
+	const int vectorLength = 16;
 	uint8x16_t v_xor = vdupq_n_u8(0);
-	for(int i = 0;i <= cSize - 16;i += 16)
+#if USE_PREFETCH
+	__builtin_prefetch(image1);
+	__builtin_prefetch(image2);
+	for(int i = 0;i <= cLength - (vectorLength*2);i += vectorLength)
+	{
+		__builtin_prefetch(image1 + i + vectorLength);
+		__builtin_prefetch(image2 + i + vectorLength);
+		uint8x16_t v_img1 = vld1q_u8(image1 + i);
+		uint8x16_t v_img2 = vld1q_u8(image2 + i);
+		uint8x16_t v_absdiff = vabdq_u8(v_img1, v_img2);
+		v_xor = veorq_u8(v_xor, v_absdiff);
+	}
+	uint8x16_t v_img1 = vld1q_u8(image1 + cLength - vectorLength);
+	uint8x16_t v_img2 = vld1q_u8(image2 + cLength - vectorLength);
+	uint8x16_t v_absdiff = vabdq_u8(v_img1, v_img2);
+	v_xor = veorq_u8(v_xor, v_absdiff);
+#else
+	for(int i = 0;i <= cLength - vectorLength;i += vectorLength)
 	{
 		uint8x16_t v_img1 = vld1q_u8(image1 + i);
 		uint8x16_t v_img2 = vld1q_u8(image2 + i);
 		uint8x16_t v_absdiff = vabdq_u8(v_img1, v_img2);
 		v_xor = veorq_u8(v_xor, v_absdiff);
 	}
+#endif
 	unsigned char x = 0;
 	x = x ^ vgetq_lane_u8(v_xor, 0);
 	x = x ^ vgetq_lane_u8(v_xor, 1);
@@ -111,6 +131,8 @@ int main(int argc, char ** argv)
 	RNG rng(initState);
 	initializeArray(rng, image1, cSize);
 	initializeArray(rng, image2, cSize);
+	dumpArray(image1, cSize);
+	dumpArray(image2, cSize);
 	unsigned char result0 = diffArray((uint8_t*)image1, (uint8_t*)image2, cSize);
 	unsigned char result1 = diffArray_verify(image1, image2, cSize);
 	std::cout << "reuslt (actual)  :" << (int)result0 << std::endl;
