@@ -157,11 +157,11 @@ void measureXorOperation(const int cLength, const int cIteration, bool usePrefet
 	image1 = new unsigned char[cLength];
 	image2 = new unsigned char[cLength];
 	unsigned char result = 0;
+	initializeArray(rng, image1, cLength);
+	initializeArray(rng, image2, cLength);
 	auto startCopy = std::chrono::system_clock::now();
 	for(int iteration = 0;iteration < cIteration;iteration++)
 	{
-		initializeArray(rng, image1, cLength);
-		initializeArray(rng, image2, cLength);
 		if(usePrefetch)
 		{
 			result = result ^ diffArray_prefetch((uint8_t*)image1, (uint8_t*)image2, cLength);
@@ -170,6 +170,8 @@ void measureXorOperation(const int cLength, const int cIteration, bool usePrefet
 		{
 			result = result ^ diffArray((uint8_t*)image1, (uint8_t*)image2, cLength);
 		}
+		image1[0] = image1[0]^(unsigned char)rng;
+		image2[0] = image2[0]^(unsigned char)rng;
 	}
 	auto endCopy = std::chrono::system_clock::now();
 	duration msec = std::chrono::duration_cast<std::chrono::milliseconds>(endCopy - startCopy).count();
