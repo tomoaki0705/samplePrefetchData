@@ -1,6 +1,7 @@
 #include <iostream>
 #include <iomanip>
 #include <chrono>
+#include <cstdlib>
 #include <stdint.h>
 #if defined(__ARM_NEON__) || (defined (__ARM_NEON) && defined(__aarch64))
 #include <arm_neon.h>
@@ -63,9 +64,8 @@ void dumpArray(const T *array, int size)
 	cout << endl;
 }
 
-duration diffArray_verify(const unsigned char* image1, const unsigned char* image2, int cLength, unsigned char& result)
+unsigned char diffArray_verify(const unsigned char* image1, const unsigned char* image2, int cLength)
 {
-	auto startCopy = std::chrono::system_clock::now();
 	char x = 0;
 	for(int i = 0;i < cLength;i++)
 	{
@@ -76,15 +76,11 @@ duration diffArray_verify(const unsigned char* image1, const unsigned char* imag
 		}
 		x = x ^ ((char)a);
 	}
-	result = x;
-	auto endCopy = std::chrono::system_clock::now();
-	duration msec = std::chrono::duration_cast<std::chrono::milliseconds>(endCopy - startCopy).count();
-	return msec;
+	return x;
 }
 
-duration diffArray_prefetch(const uint8_t* image1, const uint8_t* image2, int cLength, unsigned char& result)
+unsigned char diffArray_prefetch(const uint8_t* image1, const uint8_t* image2, int cLength)
 {
-	auto startCopy = std::chrono::system_clock::now();
 	const int vectorLength = 16;
 	uint8x16_t v_xor = vdupq_n_u8(0);
 	__builtin_prefetch(image1);
@@ -119,15 +115,11 @@ duration diffArray_prefetch(const uint8_t* image1, const uint8_t* image2, int cL
 	x = x ^ vgetq_lane_u8(v_xor, 13);
 	x = x ^ vgetq_lane_u8(v_xor, 14);
 	x = x ^ vgetq_lane_u8(v_xor, 15);
-	result = x;
-	auto endCopy = std::chrono::system_clock::now();
-	duration msec = std::chrono::duration_cast<std::chrono::milliseconds>(endCopy - startCopy).count();
-	return msec;
+	return x;
 }
 
-duration diffArray(const uint8_t* image1, const uint8_t* image2, int cLength, unsigned char& result)
+unsigned char diffArray(const uint8_t* image1, const uint8_t* image2, int cLength)
 {
-	auto startCopy = std::chrono::system_clock::now();
 	const int vectorLength = 16;
 	uint8x16_t v_xor = vdupq_n_u8(0);
 	for(int i = 0;i <= cLength - vectorLength;i += vectorLength)
@@ -154,10 +146,7 @@ duration diffArray(const uint8_t* image1, const uint8_t* image2, int cLength, un
 	x = x ^ vgetq_lane_u8(v_xor, 13);
 	x = x ^ vgetq_lane_u8(v_xor, 14);
 	x = x ^ vgetq_lane_u8(v_xor, 15);
-	result = x;
-	auto endCopy = std::chrono::system_clock::now();
-	duration msec = std::chrono::duration_cast<std::chrono::milliseconds>(endCopy - startCopy).count();
-	return msec;
+	return x;
 }
 
 void measureXorOperation(const int cLength, bool usePrefetch)
@@ -166,30 +155,47 @@ void measureXorOperation(const int cLength, bool usePrefetch)
 	unsigned char *image1, *image2;
 	image1 = new unsigned char[cLength];
 	image2 = new unsigned char[cLength];
-	initializeArray(rng, image1, cLength);
-	initializeArray(rng, image2, cLength);
-	unsigned char result;
-	duration elapsedTime;
+	unsigned char result = 0;
+	auto startCopy = std::chrono::system_clock::now();
+	for(int iteration = 0;iteration < 1000;iteration++)
+	{
+		initializeArray(rng, image1, cLength);
+		initializeArray(rng, image2, cLength);
+		if(usePrefetch)
+		{
+			result = result ^ diffArray_prefetch((uint8_t*)image1, (uint8_t*)image2, cLength);
+		}
+		else
+		{
+			result = result ^ diffArray((uint8_t*)image1, (uint8_t*)image2, cLength);
+		}
+	}
+	auto endCopy = std::chrono::system_clock::now();
+	duration msec = std::chrono::duration_cast<std::chrono::milliseconds>(endCopy - startCopy).count();
 	if(usePrefetch)
 	{
-		elapsedTime = diffArray_prefetch((uint8_t*)image1, (uint8_t*)image2, cLength, result);
 		std::cout << "----using prefetch-----" << std::endl;
 	}
 	else
 	{
-		elapsedTime = diffArray((uint8_t*)image1, (uint8_t*)image2, cLength, result);
 		std::cout << "----normal process-----" << std::endl;
 	}
 	std::cout << "result      :" << (int)result << std::endl;
-	std::cout << "elapsed time:" << elapsedTime << "[ms]" << std::endl;
+	std::cout << "elapsed time:" << msec << "[ms]" << std::endl;
 	delete [] image1;
 	delete [] image2;
 }
 
 int main(int argc, char ** argv)
 {
-	measureXorOperation(cSize, false);
-	measureXorOperation(cSize, true);
+	int length = cSize;
+	if(1 < argc)
+	{
+		length = std::max(atoi(argv[1]), cSize);
+		length = length & ~0xf;
+	}
+	measureXorOperation(length, false);
+	measureXorOperation(length, true);
 	
 	return 0;
 }
