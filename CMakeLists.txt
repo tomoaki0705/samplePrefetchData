@@ -4,4 +4,4 @@ project(samplePrefetch)
 
 add_executable(measurePrefetch main.cpp)
 
-set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -mfpu=neon-fp16 -fpermissive")
+set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -mfpu=neon-fp16 -fpermissive -std=c++11")
