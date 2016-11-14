@@ -150,7 +150,7 @@ unsigned char diffArray(const uint8_t* image1, const uint8_t* image2, int cLengt
 	return x;
 }
 
-void measureXorOperation(const int cLength, const int cIteration, bool usePrefetch)
+duration measureXorOperation(const int cLength, const int cIteration, bool usePrefetch)
 {
 	RNG rng(initState);
 	unsigned char *image1, *image2;
@@ -175,18 +175,19 @@ void measureXorOperation(const int cLength, const int cIteration, bool usePrefet
 	}
 	auto endCopy = std::chrono::system_clock::now();
 	duration msec = std::chrono::duration_cast<std::chrono::milliseconds>(endCopy - startCopy).count();
-	if(usePrefetch)
-	{
-		std::cout << "----using prefetch-----" << std::endl;
-	}
-	else
-	{
-		std::cout << "----normal process-----" << std::endl;
-	}
-	std::cout << "result      :" << (int)result << std::endl;
-	std::cout << "elapsed time:" << msec << "[ms]" << std::endl;
+	//if(usePrefetch)
+	//{
+	//	std::cout << "----using prefetch-----" << std::endl;
+	//}
+	//else
+	//{
+	//	std::cout << "----normal process-----" << std::endl;
+	//}
+	std::cerr << "result      :" << (int)result << std::endl;
+	std::cerr << "elapsed time:" << msec << "[ms]" << std::endl;
 	delete [] image1;
 	delete [] image2;
+	return msec;
 }
 
 int main(int argc, char ** argv)
@@ -202,8 +203,10 @@ int main(int argc, char ** argv)
 	{
 		loop = std::max(atoi(argv[2]), 10);
 	}
-	measureXorOperation(length, loop, false);
-	measureXorOperation(length, loop, true);
+	duration prefetch = measureXorOperation(length, loop, true);
+	duration normal = measureXorOperation(length, loop, false);
+	float ratio = (float)normal/(float)prefetch;
+	std::cout << length << '\t' << loop << '\t' << ratio << '\t' << prefetch << '\t' << normal << std::endl;
 	
 	return 0;
 }
